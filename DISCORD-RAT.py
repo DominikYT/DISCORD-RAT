@@ -1,9 +1,10 @@
+# pip install discord
 import discord
 import socket
 import subprocess
 
 
-TOKEN = "HERE TOKEN BOT"
+TOKEN = "HERE TOKEN BOT" # <---- Discord Bot Token
 ip = socket.gethostbyname(socket.gethostname())
 intents = discord.Intents.default()
 intents.message_content = True
