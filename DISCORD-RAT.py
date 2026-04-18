@@ -2,7 +2,6 @@
 import discord
 import socket
 import subprocess
-import winreg
 
 
 TOKEN = "Token" # <---- Discord Bot Token
