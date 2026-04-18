@@ -1,8 +1,8 @@
 # DISCORD-RAT
 
-You need library discord, pillow and pyautogui .
+You need library discord, pillow, pyautogui and requests.
 
-In Command Prompt type: pip install discord pillow pyautogui
+In Command Prompt type: pip install discord pillow pyautogui requests
 
 In TOKEN change value to your bot token.
 
