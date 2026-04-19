@@ -19,5 +19,5 @@ cls
 echo Installing Requirements in 0...
 timeout /t 1
 cls
-pip install requests pyinstaller
+pip install discord pillow pyautogui requests pyinstaller
 pause
