@@ -1,4 +1,4 @@
-# pip install discord.py pyautogui requests opencv-python pygrabber numpy pillow comtypes pypiwin32
+# pip install discord.py pyautogui requests opencv-python pygrabber numpy pillow comtypes
 
 import discord
 import socket
