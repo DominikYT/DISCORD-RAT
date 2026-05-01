@@ -19,5 +19,5 @@ cls
 echo Installing Requirements in 0...
 timeout /t 1
 cls
-pip install discord pillow pyautogui requests pypiwin32
+pip install discord.py pyautogui requests opencv-python pygrabber numpy pillow comtypes
 pause
