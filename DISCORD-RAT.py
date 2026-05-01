@@ -1,18 +1,6 @@
 # pip install discord.py pyautogui requests opencv-python pygrabber numpy pillow comtypes
 
-import discord
-import socket
-import subprocess
-import pyautogui
-import os
-import uuid
-import requests
-import io
-import threading
-import sqlite3
-import shutil
-import cv2
-import datetime
+import discord, socket, subprocess, pyautogui, os, uuid, requests, io, threading, sqlite3, shutil, cv2, datetime
 from pygrabber.dshow_graph import FilterGraph
 from tkinter import messagebox
 from urllib.parse import urlparse
