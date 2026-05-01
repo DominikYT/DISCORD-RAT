@@ -1,6 +1,5 @@
 # DISCORD-RAT
 
-You need library discord, pillow, pyautogui and requests.
 
 In Command Prompt type: pip install discord pillow pyautogui requests
 
